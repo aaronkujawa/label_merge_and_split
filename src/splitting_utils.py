@@ -1,13 +1,15 @@
 import pandas as pd
 import torch
 import monai
-import numpy as np
 import nibabel as nib
 
 
 def get_fuzzy_prior_fudged(label_support_path):
-    # load the fuzzy prior, and smooth it so that pixels that haven't seen a certain structure in the fuzzy prior creation will
-    # still get some probability if they are close to the structure
+    """
+    Get the fudged fuzzy prior from the label support
+    :param label_support_path: path to the label support file
+    :return: fudged fuzzy prior
+    """
     if 'fuzzy_prior' not in locals():
         label_support = torch.load(label_support_path)
 
@@ -26,7 +28,14 @@ def get_fuzzy_prior_fudged(label_support_path):
 
 # relabel all pixels according to fudged prior labels
 def split_merged_labels(label_paths_in, label_paths_out, fuzzy_prior_fudged, merged_labels_csv_path):
-
+    """
+    Split the merged labels according to influence regions based on the fudged prior.
+    :param label_paths_in: list of paths to the merged label files
+    :param label_paths_out: list of paths to the split label files
+    :param fuzzy_prior_fudged: fudged fuzzy prior
+    :param merged_labels_csv_path: path to the merged labels csv file
+    :return: None
+    """
     for label_path_in, label_path_out in zip(label_paths_in, label_paths_out):
         in_nii = nib.load(label_path_in)
         in_data = torch.tensor(in_nii.get_fdata()).to("cuda")
