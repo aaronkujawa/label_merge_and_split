@@ -1,3 +1,4 @@
+import os
 from multiprocessing import Pool
 
 import networkx as nx
@@ -178,8 +179,8 @@ def get_adjacency_matrix(distance_matrix, distance_threshold, average_vol_ratio_
     """
 
     # create adjacency matrix
-    adjacency_matrix = np.zeros_like(distance_matrix)
-    adjacency_matrix[(distance_matrix < distance_threshold) & (average_vol_ratio_matrix < vol_ratio_threshold)] = 1
+    adjacency_matrix = np.ones_like(distance_matrix)
+    adjacency_matrix[(distance_matrix > distance_threshold) & (average_vol_ratio_matrix < vol_ratio_threshold)] = 0
 
     return adjacency_matrix
 
@@ -262,6 +263,7 @@ def get_merged_label_dataframe(label_paths,
                                distance_threshold=1.0,
                                volume_ratio_threshold=3.5,
                                dont_merge_labels=[0,],
+                               output_dir=None,
                                debug=False):
     """
     This function creates a pandas dataframe that contains the original labels, channels, merged labels and label names,
@@ -311,4 +313,39 @@ def get_merged_label_dataframe(label_paths,
         [label_dataframe[label_dataframe["merged_label"] == merged_label]["label"].tolist() for merged_label
          in label_dataframe["merged_label"]]
 
+    if output_dir is not None:
+        label_dataframe.to_csv(os.path.join(output_dir, "merged_labels.csv"), index=False)
+
     return label_dataframe
+
+
+def merge_label_volumes(label_paths_in, label_paths_out, merged_labels_csv_path):
+    """
+    This function merges the label volumes according to the merged_labels_csv_path and saves the merged label volumes
+    to label_paths_out.
+    :param label_paths_in: list of paths to the label files
+    :param label_paths_out: list of paths to the output label files
+    :param merged_labels_csv_path: path to the csv file that contains the merged labels
+    """
+    orig_to_merged_label_map = pd.read_csv(merged_labels_csv_path, index_col='label').to_dict()["merged_label"]
+
+    for label_path_in, label_path_out in zip(label_paths_in, label_paths_out):
+        # load data
+        label_nii = nib.load(label_path_in)
+        label_data = label_nii.get_fdata()
+
+        # merge labels using torch if cuda is available
+        if torch.cuda.is_available():
+            label_data_merged = torch.tensor(label_data, device="cuda")
+            for orig_label, merged_label in orig_to_merged_label_map.items():
+                label_data_merged[label_data_merged == orig_label] = merged_label
+            label_data_merged = label_data_merged.cpu().numpy()
+        else:
+            # merge labels using vectorize
+            label_data_merged = np.vectorize(orig_to_merged_label_map.get, otypes=[np.float32])(label_data)
+
+        # save file
+        label_data_merged_nii = nib.Nifti1Image(label_data_merged, label_nii.affine)
+        nib.save(label_data_merged_nii, label_path_out)
+
+        print(f"Saved merged label volume to {label_path_out}")
