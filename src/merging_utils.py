@@ -354,7 +354,7 @@ def merge_label_volumes(label_paths_in, label_paths_out, merged_labels_csv_path)
         if torch.cuda.is_available():
             label_data_merged = torch.tensor(label_data, device="cuda")
             for orig_label, merged_label in orig_to_merged_label_map.items():
-                label_data_merged[label_data_merged == orig_label] = merged_label
+                label_data_merged[label_data == orig_label] = merged_label
             label_data_merged = label_data_merged.cpu().numpy()
         else:
             # merge labels using vectorize
