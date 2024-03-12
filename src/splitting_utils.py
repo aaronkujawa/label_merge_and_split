@@ -22,7 +22,18 @@ def get_fuzzy_prior_fudged(label_support_path):
 
         for l in range(fuzzy_prior.shape[0]):
             # we don't want high probabilites to decrease because of the smoothing, so keep the maximum of smoothed and original
-            fuzzy_prior_fudged[l, ...] = torch.maximum(smooth(fuzzy_prior[l, ...]).to("cuda"), fuzzy_prior[l, ...].to("cuda"))
+            smoothed_prior = smooth(fuzzy_prior[l, ...]).to("cuda")
+
+            # # alternative: apply distance transform to fuzzy prior
+            # fuzzy_prior_l = fuzzy_prior[l, ...].to("cuda")
+            # edt_prior = monai.transforms.DistanceTransformEDT()(fuzzy_prior_l).to("cuda")
+            #
+            # # scale values from 0 (furthest) to minimum fuzzy prior value (closest)
+            # divisor = torch.max(edt_prior)/torch.min(fuzzy_prior_l)
+            # edt_prior = (-edt_prior / divisor) + torch.min(fuzzy_prior_l)
+
+            prior = smoothed_prior  # or edt_prior
+            fuzzy_prior_fudged[l, ...] = torch.maximum(prior, fuzzy_prior[l, ...].to("cuda"))
         return fuzzy_prior_fudged
 
 
