@@ -19,12 +19,12 @@ class TestGetAdjacencyMatrix(unittest.TestCase):
         label_paths = natsorted(glob(os.path.join(PROJ_ROOT, "data/task2153_mind/input/dataset/labelsTr/*.nii.gz")))
         label_to_name_csv_path = os.path.join(PROJ_ROOT, "data/task2153_mind/input/dataset/labels.csv")
 
+        save = True
+        if save:
+            output_dir = os.path.join(PROJ_ROOT, "data/task2153_mind/output")
+
         # get the label dataframe
-        label_df = get_merged_label_dataframe(label_paths, label_to_name_csv_path, debug=False)
+        label_df = get_merged_label_dataframe(label_paths, label_to_name_csv_path, output_dir=output_dir, debug=True)
 
         with pd.option_context('display.max_rows', None, 'display.max_columns', None):
             print(label_df)
-
-        # save the label dataframe
-        if True:
-            label_df.to_csv(os.path.join(PROJ_ROOT, "data/task2153_mind/output/merged_labels.csv"), index=False)

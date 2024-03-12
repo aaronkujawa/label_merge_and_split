@@ -37,13 +37,14 @@ def get_label_to_channel_mapping(label_paths):
     return label_to_channel_map
 
 
-def get_label_support(label_paths, label_to_channel_map):  # equation 1
+def get_label_support(label_paths, label_to_channel_map, save_path=None):  # equation 1
     """
     This function calculates the label support for each label in found in the label_paths data arrays, i.e. it counts
     the number of times each label appears in the label_paths data arrays at each voxel.
     This requires that labels were co-registered to the same space.
     :param label_paths: list of paths to the label files
     :param label_to_channel_map: a dictionary that maps each label to a consecutive channel number
+    :param save_path: path to save the label support
     :return: label_support: an array of shape (num_labels, *data_shape) that contains the label support for each label
     """
     for i, parc_path in enumerate(tqdm(label_paths)):
@@ -51,16 +52,23 @@ def get_label_support(label_paths, label_to_channel_map):  # equation 1
 
         if i == 0:
             nb_labels = len(label_to_channel_map)
-            fuzzy_prior = torch.zeros((nb_labels,) + parc_data.shape, device="cuda").float()
+            label_support = torch.zeros((nb_labels,) + parc_data.shape, device="cuda").float()
 
         for lab in torch.unique(parc_data):
-            to_add_to_channel = torch.zeros_like(parc_data).float()
-            to_add_to_channel[parc_data == lab] = 1.0 / len(label_paths)
+            to_add_to_channel = parc_data == lab
 
-            fuzzy_prior[label_to_channel_map[lab.to('cpu').item()], ...] = fuzzy_prior[label_to_channel_map[
-                lab.to('cpu').item()], ...] + to_add_to_channel
+            lab = lab.to('cpu').item()
+            channel = label_to_channel_map[lab]
+            label_support[channel] += to_add_to_channel
 
-    return fuzzy_prior
+    if save_path:
+        # convert to int16 to save space (max value allowed: 32767)
+        assert (torch.max(label_support) < 32767)
+        label_support = label_support.to(torch.int16)
+        print(f"Saving label support to {save_path}")
+        torch.save(label_support, save_path)
+
+    return label_support
 
 
 def get_distance(args):
@@ -282,9 +290,13 @@ def get_merged_label_dataframe(label_paths,
     :return: label_dataframe: a pandas dataframe that contains the original labels, channels, merged labels and label names,
     merged label names and a list of original labels that are merged into the merged label
     """
+
+    if output_dir:
+        label_support_save_path = os.path.join(output_dir, "label_support.pt")
+
     label_to_name_map = pd.read_csv(label_to_name_csv_path, index_col=0).to_dict()["name"]
     label_to_channel_map = get_label_to_channel_mapping(label_paths)
-    label_support = get_label_support(label_paths, label_to_channel_map)
+    label_support = get_label_support(label_paths, label_to_channel_map, save_path=label_support_save_path)
 
     if debug:
         # reduce number of labels
