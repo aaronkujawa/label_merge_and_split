@@ -1,0 +1,4 @@
+.idea
+data/task2153_mind/input/dataset/imagesTr
+data/task2153_mind/input/dataset/imagesTs
+*__pycache__*
