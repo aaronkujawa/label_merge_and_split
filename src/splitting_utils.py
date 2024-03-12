@@ -47,29 +47,37 @@ def split_merged_labels(label_paths_in, label_paths_out, fuzzy_prior_fudged, mer
     :param merged_labels_csv_path: path to the merged labels csv file
     :return: None
     """
+    merged_labels_df = pd.read_csv(merged_labels_csv_path, index_col='label')
+
+    unique_merged_labels = merged_labels_df['merged_label'].unique()
+    # calculate the influence regions for each merged label's original labels
+    influence_regions = {}
+    for merged_label in unique_merged_labels:
+        orig_labels = merged_labels_df[merged_labels_df['merged_label'] == merged_label].index
+        channels = [merged_labels_df.loc[l, 'channel'] for l in orig_labels]
+
+        # select only the priors of the old labels that correspond to the current merged_label
+        influence_regions[merged_label] = torch.argmax(fuzzy_prior_fudged[channels], dim=0).type(torch.int)
+
     for label_path_in, label_path_out in zip(label_paths_in, label_paths_out):
         in_nii = nib.load(label_path_in)
         in_data = torch.tensor(in_nii.get_fdata()).to("cuda")
 
         out_data = torch.zeros_like(in_data, dtype=torch.int, device="cuda")
 
-        merged_labels_df = pd.read_csv(merged_labels_csv_path, index_col='label')
+        for merged_label in unique_merged_labels:
 
-        for l_comb in merged_labels_df['merged_label'].unique():
-
-            orig_labels = merged_labels_df[merged_labels_df['merged_label'] == l_comb].index
+            orig_labels = merged_labels_df[merged_labels_df['merged_label'] == merged_label].index
             channels = [merged_labels_df.loc[l, 'channel'] for l in orig_labels]
 
-            # select only the priors of the old labels that correspond to the current new label l_comb
-            influence_regions = torch.argmax(fuzzy_prior_fudged[channels], dim=0).type(torch.int)
-
             # convert the channels back to original labels
-            orig_labels_argmax = torch.zeros_like(influence_regions)
+            influence_region = influence_regions[merged_label]
+            orig_labels_argmax = torch.zeros_like(influence_region)
             for orig, chan in zip(orig_labels, range(len(orig_labels))):
-                orig_labels_argmax[influence_regions == chan] = orig
+                orig_labels_argmax[influence_region == chan] = orig
 
             # assign each pixel
-            l_comb_selection = (in_data == l_comb)
+            l_comb_selection = (in_data == merged_label)
             out_data[l_comb_selection] = orig_labels_argmax[l_comb_selection]
 
         out_nii = nib.Nifti1Image(out_data.cpu().numpy(), in_nii.affine)
