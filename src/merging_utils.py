@@ -66,7 +66,7 @@ def get_label_support(label_paths, label_to_channel_map):  # equation 1
 def get_distance(args):
     """
     Helper function to calculate the minimum distance between two labels in parallel
-    :param args: a list containing the the first label, the second label and the label support array
+    :param args: a list containing the first label, the second label and the label support array
     :return: a list containing the first label, the second label and the minimum distance between the two labels in the
     label support
     """
@@ -77,21 +77,13 @@ def get_distance(args):
 
     spacing = [1, 1, 1]
 
-    support_l1 = torch.zeros_like(label_support[label1])
-    support_l1[label_support[label1] > 0] = 1
-    support_l2 = torch.zeros_like(label_support[label2])
-    support_l2[label_support[label2] > 0] = 1
-
     # get coordinates of boundary voxels for both labels
-    binary_img_label1 = support_l1.cpu().numpy()
-    binary_img_label2 = support_l2.cpu().numpy()
+    binary_img_label1 = label_support[label1].cpu().numpy()
+    binary_img_label2 = label_support[label2].cpu().numpy()
 
     if np.count_nonzero(binary_img_label1) and np.count_nonzero(binary_img_label2):  # check if both labels exist
-        boundaries_label1 = segmentation.find_boundaries(binary_img_label1, connectivity=1, mode='inner', background=0)
-        boundaries_label2 = segmentation.find_boundaries(binary_img_label2, connectivity=1, mode='inner', background=0)
-
-        boundary_coordinates_label1 = np.array(list(zip(*np.where(boundaries_label1))))
-        boundary_coordinates_label2 = np.array(list(zip(*np.where(boundaries_label2))))
+        boundary_coordinates_label1 = np.array(list(zip(*np.where(binary_img_label1))))
+        boundary_coordinates_label2 = np.array(list(zip(*np.where(binary_img_label2))))
 
         # calculate the minimum distances for each point in label1 to any point in label2
         min_dists, _ = cKDTree(boundary_coordinates_label1 * np.array(spacing)).query(
@@ -115,6 +107,18 @@ def get_distance_matrix(label_support):  # equation 2
     :return: distance_matrix: an array of shape (num_labels, num_labels) that contains the minimum distances between
     original labels
     """
+
+    # in the label support, keep only the boundaries of the labels to speed up the distance calculation
+    for c in range(label_support.shape[0]):
+        mask = label_support[c] > 0
+        mask = mask.cpu().numpy()
+        if np.count_nonzero(mask):
+            mask_boundary = segmentation.find_boundaries(mask, connectivity=1, mode='inner', background=0)
+        else:
+            mask_boundary = mask
+        label_support[c] = torch.tensor(mask_boundary, device="cuda")
+
+    print(f"{label_support.shape=}")
 
     # label support needs to be on the cpu
     if torch.is_tensor(label_support):
