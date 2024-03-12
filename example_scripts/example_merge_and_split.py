@@ -44,7 +44,8 @@ fuzzy_prior_fudged = get_fuzzy_prior_fudged(label_support_path)
 # split the merged labels
 label_paths_merged_in = merged_label_paths_out
 label_paths_split_out = [os.path.join(output_dir, "predictions/split",
-                                      os.path.basename(p).replace("merged.nii.gz", ".nii.gz")) for p in label_paths_in]
+                                      os.path.basename(p).replace("merged.nii.gz", ".nii.gz"))
+                         for p in label_paths_merged_in]
 split_merged_labels(label_paths_merged_in, label_paths_split_out, fuzzy_prior_fudged, merged_labels_csv_path)
 
 # plot original, merged, and split labels for first file

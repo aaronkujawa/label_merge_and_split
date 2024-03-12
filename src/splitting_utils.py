@@ -74,3 +74,4 @@ def split_merged_labels(label_paths_in, label_paths_out, fuzzy_prior_fudged, mer
 
         out_nii = nib.Nifti1Image(out_data.cpu().numpy(), in_nii.affine)
         nib.save(out_nii, label_path_out)
+        print(f"Saved split label to {label_path_out}")
