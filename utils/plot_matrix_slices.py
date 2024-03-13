@@ -4,6 +4,7 @@ import nibabel as nib
 import os
 import torch
 
+
 def plot_matrix_slices(data, pixdim=[1,1,1], nibabel_header=None, lo_intensity_nanpercentile=5, up_intensity_nanpercentile=95, title="", save_png_path=None, save_nifti_path=None, nifti_affine=None, open_nifti_in_itksnap=False, suppress_show=False):
 
     if nifti_affine is not None:

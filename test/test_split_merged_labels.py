@@ -1,3 +1,4 @@
+import time
 import unittest
 from config.config import PROJ_ROOT
 import os
@@ -6,6 +7,7 @@ from natsort import natsorted
 from glob import glob
 
 from utils.plot_matrix_slices import plot_matrix_slices
+from utils.timing import tic, toc
 
 
 class TestSplitMergedLabels(unittest.TestCase):
@@ -16,9 +18,13 @@ class TestSplitMergedLabels(unittest.TestCase):
                                         os.path.basename(p).replace("merged.nii.gz", ".nii.gz")) for p in label_paths_in]
         merged_labels_csv_path = os.path.join(PROJ_ROOT, "data/task2153_mind/output/merged_labels.csv")
 
+        tic()
         fuzzy_prior_fudged = get_fuzzy_prior_fudged(label_support_path)
+        toc("get_fuzzy_prior_fudged")
 
+        tic()
         split_merged_labels(label_paths_in, label_paths_out, fuzzy_prior_fudged, merged_labels_csv_path)
+        toc("split_merged_labels")
 
         # check if the output files exist
         for p in label_paths_out:
