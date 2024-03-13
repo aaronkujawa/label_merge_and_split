@@ -4,3 +4,4 @@ data/task2153_mind/input/dataset/imagesTs
 data/task2153_mind/output/label_support.pt
 data/task2153_mind/output/merged_labels_backup.csv
 *__pycache__*
+*cufile.log

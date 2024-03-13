@@ -4,7 +4,7 @@ from glob import glob
 from natsort import natsorted
 
 from src.merging_utils import get_label_to_channel_mapping
-from config.config import  PROJ_ROOT
+from config.config import PROJ_ROOT
 
 
 class TestGetLabelToChannelMapping(unittest.TestCase):
