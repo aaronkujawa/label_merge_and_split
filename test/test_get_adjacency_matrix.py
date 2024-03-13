@@ -7,8 +7,8 @@ from glob import glob
 import os
 from matplotlib import pyplot as plt
 
-from src.merging_utils import (get_label_to_channel_mapping, get_label_support, get_average_volume_ratio_matrix,
-                               get_distance_matrix, get_adjacency_matrix)
+from labelmergeandsplit.merging_utils import (get_label_to_channel_mapping, get_label_support, get_average_volume_ratio_matrix,
+                                              get_distance_matrix, get_adjacency_matrix)
 
 
 class TestGetAdjacencyMatrix(unittest.TestCase):

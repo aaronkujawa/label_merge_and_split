@@ -3,7 +3,7 @@ import os
 from glob import glob
 from natsort import natsorted
 
-from src.merging_utils import merge_label_volumes
+from labelmergeandsplit.merging_utils import merge_label_volumes
 from config.config import PROJ_ROOT
 
 

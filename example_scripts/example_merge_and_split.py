@@ -3,8 +3,8 @@ from glob import glob
 from natsort import natsorted
 import nibabel as nib
 
-from src.merging_utils import get_merged_label_dataframe, merge_label_volumes
-from src.splitting_utils import get_fuzzy_prior_fudged, split_merged_labels
+from labelmergeandsplit.merging_utils import get_merged_label_dataframe, merge_label_volumes
+from labelmergeandsplit.splitting_utils import get_fuzzy_prior_fudged, split_merged_labels
 from utils.plot_matrix_slices import plot_matrix_slices
 
 from config.config import PROJ_ROOT

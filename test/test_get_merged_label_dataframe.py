@@ -8,7 +8,7 @@ from natsort import natsorted
 from glob import glob
 import os
 
-from src.merging_utils import get_merged_label_dataframe
+from labelmergeandsplit.merging_utils import get_merged_label_dataframe
 
 
 class TestGetAdjacencyMatrix(unittest.TestCase):

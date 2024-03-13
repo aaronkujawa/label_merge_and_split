@@ -1,7 +1,7 @@
 import unittest
 from config.config import PROJ_ROOT
 import os
-from src.splitting_utils import get_fuzzy_prior_fudged, split_merged_labels
+from labelmergeandsplit.splitting_utils import get_fuzzy_prior_fudged, split_merged_labels
 from natsort import natsorted
 from glob import glob
 

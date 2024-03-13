@@ -286,6 +286,7 @@ def get_merged_label_dataframe(label_paths,
     :param volume_ratio_threshold: an upper threshold for the average volume ratio matrix
     :param dont_merge_labels: a list of labels that should not be merged, for example the background label, because
     the preprocessing might depend on the background image intensities
+    :param output_dir: path to the output directory where the merged_labels.csv file and the label_support.pt are saved
     :param debug: if True, only a subset of the labels is used for testing
     :return: label_dataframe: a pandas dataframe that contains the original labels, channels, merged labels and label names,
     merged label names and a list of original labels that are merged into the merged label

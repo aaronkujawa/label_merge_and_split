@@ -6,8 +6,8 @@ from natsort import natsorted
 from glob import glob
 import os
 
-from src.merging_utils import (get_label_to_channel_mapping, get_label_support, get_average_volume_ratio_matrix,
-                               get_distance_matrix, get_adjacency_matrix, get_orig_to_merged_label_map)
+from labelmergeandsplit.merging_utils import (get_label_to_channel_mapping, get_label_support, get_average_volume_ratio_matrix,
+                                              get_distance_matrix, get_adjacency_matrix, get_orig_to_merged_label_map)
 
 
 class TestGetAdjacencyMatrix(unittest.TestCase):

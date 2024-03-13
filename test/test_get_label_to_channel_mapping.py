@@ -3,7 +3,7 @@ import os
 from glob import glob
 from natsort import natsorted
 
-from src.merging_utils import get_label_to_channel_mapping
+from labelmergeandsplit.merging_utils import get_label_to_channel_mapping
 from config.config import PROJ_ROOT
 
 

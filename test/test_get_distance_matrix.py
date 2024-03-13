@@ -7,7 +7,7 @@ from glob import glob
 import os
 from matplotlib import pyplot as plt
 
-from src.merging_utils import get_label_to_channel_mapping, get_label_support, get_distance_matrix
+from labelmergeandsplit.merging_utils import get_label_to_channel_mapping, get_label_support, get_distance_matrix
 
 
 class TestGetDistanceMatrix(unittest.TestCase):
