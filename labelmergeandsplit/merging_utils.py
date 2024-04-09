@@ -126,8 +126,6 @@ def get_distance_matrix(label_support):  # equation 2
             mask_boundary = mask
         label_support[c] = torch.tensor(mask_boundary, device="cuda")
 
-    print(f"{label_support.shape=}")
-
     # label support needs to be on the cpu
     if torch.is_tensor(label_support):
         label_support = label_support.cpu()
@@ -293,10 +291,13 @@ def get_merged_label_dataframe(label_paths,
     """
 
     if output_dir:
+        assert(os.path.exists(output_dir)), f"Output directory {output_dir} does not exist"
         label_support_save_path = os.path.join(output_dir, "label_support.pt")
 
     label_to_name_map = pd.read_csv(label_to_name_csv_path, index_col=0).to_dict()["name"]
+    print("Getting label to channel mapping...")
     label_to_channel_map = get_label_to_channel_mapping(label_paths)
+    print("Getting label support...")
     label_support = get_label_support(label_paths, label_to_channel_map, save_path=label_support_save_path)
 
     if debug:
@@ -306,9 +307,13 @@ def get_merged_label_dataframe(label_paths,
         label_to_channel_map = {label: channel for label, channel in label_to_channel_map.items() if channel < nb_test_labels}
         label_to_name_map = {label: name for label, name in label_to_name_map.items() if label in label_to_channel_map}
 
+    print("Calculating distance matrix...")
     distance_matrix = get_distance_matrix(label_support)
+    print("Calculating average volume ratio matrix...")
     average_volume_ratio_matrix = get_average_volume_ratio_matrix(label_support)
+    print("Calculating adjacency matrix...")
     adjacency_matrix = get_adjacency_matrix(distance_matrix, distance_threshold, average_volume_ratio_matrix, volume_ratio_threshold)
+    print("Calculating merged label mapping...")
     orig_to_merged_label_map = get_orig_to_merged_label_map(adjacency_matrix, label_to_channel_map, dont_merge_labels)
 
     # create a pandas dataframe that contains the original labels, channels, merged labels and label names
@@ -332,6 +337,7 @@ def get_merged_label_dataframe(label_paths,
 
     if output_dir is not None:
         label_dataframe.to_csv(os.path.join(output_dir, "merged_labels.csv"), index=False)
+        print(f"Saved merged labels to {os.path.join(output_dir, 'merged_labels.csv')}")
 
     return label_dataframe
 
