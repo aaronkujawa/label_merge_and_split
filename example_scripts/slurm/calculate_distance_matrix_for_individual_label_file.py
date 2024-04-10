@@ -18,11 +18,14 @@ taskid = args.taskid
 
 
 label_paths = natsorted(glob(os.path.join("../../data/task2153_mind/input/dataset/labelsTr/*.nii.gz")))
-label_paths = [os.path.abspath(p) for p in label_paths]
 label_to_channel_map = get_label_to_channel_mapping(label_paths)
 output_fpaths = [os.path.join("../../data/task2153_mind/output/distance_matrices/", os.path.basename(p).
                               replace(".nii.gz", "_distance_matrix.npy")) for p in label_paths]
                               
+                              
+label_paths = [os.path.abspath(p) for p in label_paths]
+output_fpaths = [os.path.abspath(p) for p in output_fpaths]
+
 for p in output_fpaths:
     os.makedirs(os.path.dirname(p), exist_ok=True)
 
