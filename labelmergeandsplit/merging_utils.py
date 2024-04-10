@@ -81,13 +81,25 @@ def get_distance(args):
     # print(label_pair, flush=True)
     label1 = args[0]
     label2 = args[1]
-    label_support = args[2]
+    label_array = args[2]
 
     spacing = [1, 1, 1]
 
     # get coordinates of boundary voxels for both labels
-    binary_img_label1 = label_support[label1].cpu().numpy()
-    binary_img_label2 = label_support[label2].cpu().numpy()
+    if len(label_array.shape) == 4:  # if the label array has a channel dimension (channel, x, y, z) like the label support
+        binary_img_label1 = label_array[label1]
+        binary_img_label2 = label_array[label2]
+    elif len(label_array.shape) == 3:  # if the label array is a single label volume (x, y, z) with ordinal labels
+        binary_img_label1 = label_array == label1
+        binary_img_label2 = label_array == label2
+    else:
+        raise ValueError("Label array must have 3 or 4 dimensions")
+
+    # check if is tensor and convert to numpy array
+    if torch.is_tensor(binary_img_label1):
+        binary_img_label1 = binary_img_label1.cpu().numpy()
+    if torch.is_tensor(binary_img_label2):
+        binary_img_label2 = binary_img_label2.cpu().numpy()
 
     if np.count_nonzero(binary_img_label1) and np.count_nonzero(binary_img_label2):  # check if both labels exist
         boundary_coordinates_label1 = np.array(list(zip(*np.where(binary_img_label1))))
@@ -105,8 +117,28 @@ def get_distance(args):
     # print([label1, label2, dist], flush=True)
     return [label1, label2, dist]
 
+def convert_dists_to_distance_matrix(min_dists, nb_labels):
+    """
+    This function converts the list of minimum distances between original labels to a minimum distance matrix.
+    :param min_dists: list of tuples (label1, label2, distance) that contains the minimum distances between original labels
+    :param nb_labels: number of labels
+    :return: min_dist_mat: an array of shape (num_labels, num_labels) that contains the minimum distances between
+    original labels and np.Inf on the diagonal
+    """
+    # create distance matrix
+    min_dist_mat = np.zeros([nb_labels, nb_labels])
+    for dist in tqdm(min_dists):
+        min_dist_mat[dist[0], dist[1]] = dist[2]
+        min_dist_mat[dist[1], dist[0]] = dist[2]  # make symmetric
 
-def get_distance_matrix(label_support):  # equation 2
+    # set diagonal to infinity
+    nb_labels = min_dist_mat.shape[0]
+    min_dist_mat = min_dist_mat + np.diag([np.Inf] * nb_labels)
+
+    return min_dist_mat
+
+
+def get_distance_matrix_from_label_support(label_support):  # equation 2
     """
     This function calculates the minimum distances between original labels as observed in the label support.
     This information is encoded in the distance matrix  whose entries are the minimum Euclidean distance between any
@@ -141,17 +173,95 @@ def get_distance_matrix(label_support):  # equation 2
     with Pool(10) as p:
         min_dists = list(tqdm(p.imap(get_distance, input_args), total=len(input_args)))
 
-    # create distance matrix
-    min_dist_mat = np.zeros([nb_labels, nb_labels])
-    for dist in tqdm(min_dists):
-        min_dist_mat[dist[0], dist[1]] = dist[2]
-        min_dist_mat[dist[1], dist[0]] = dist[2]  # make symmetric
-
-    # set diagonal to infinity
-    nb_labels = min_dist_mat.shape[0]
-    min_dist_mat = min_dist_mat + np.diag([np.Inf] * nb_labels)
+    min_dist_mat = convert_dists_to_distance_matrix(min_dists, nb_labels)
 
     return min_dist_mat
+
+
+def get_distance_matrix_from_input_label_files(label_paths, label_to_channel_map, output_fpaths=None, overwrite=False,
+                                               debug=False):
+    """
+    This function calculates the minimum distances between original labels by calculating label distances on a case-by-case
+    basis. The final distance between two labels is the minimum distance between the two labels over all cases. This is
+    more computationally expensive than calculating the distance matrix from the label support, but should result in a
+    larger minimum distances between labels and therefore more merging of labels.
+    Note that here, the minimum distance between any two labels is 1 (adjacent voxels) whereas in the distance matrix
+    from the label support, the minimum distance between any two labels is 0 (overlapping support).
+    :param label_paths: list of paths to the label files
+    :param label_to_channel_map: a dictionary that maps each label to a consecutive channel number
+    :param output_fpaths: list of paths to save the minimum distance matrices
+    :param overwrite: if True, the minimum distance matrices are calculated and saved, otherwise the function will load
+    the minimum distance matrices from the output_fpaths
+    :param debug: if True, only a subset of the labels is used for testing
+    :return: min_min_dist_mat: an array of shape (num_labels, num_labels) that contains the minimum distances between
+    original labels
+    """
+    if output_fpaths:
+        assert len(output_fpaths) == len(label_paths), "Number of output paths must match number of label paths"
+        for output_fpath in output_fpaths:
+            assert os.path.exists(os.path.dirname(output_fpath)), f"Output directory {os.path.dirname(output_fpath)} does not exist"
+
+    min_min_dist_mat = None
+    for idx, label_path in enumerate(label_paths):
+        # if the minimum distance matrix is already calculated and saved, load it
+        # otherwise calculate the minimum distance matrix
+        if output_fpaths and not overwrite and os.path.exists(output_fpaths[idx]):
+            min_dist_mat = np.load(output_fpaths[idx])
+            print(f"Loaded minimum distance matrix from {output_fpaths[idx]}")
+        else:
+            label_data = nib.load(label_path).get_fdata().astype(int)
+
+            if debug:
+                # reduce number of labels
+                nb_test_labels = 10
+                label_to_channel_map = {label: channel for label, channel in label_to_channel_map.items() if
+                                        channel < nb_test_labels}
+                # set labels that are not in the label_to_channel_map to 0
+                label_data[~np.isin(label_data, list(label_to_channel_map.keys()))] = 0
+
+            # relabel the labels to consecutive channel numbers using vectorize
+            label_data = np.vectorize(label_to_channel_map.get)(label_data)
+
+            # keep only the boundaries of the labels to speed up the distance calculation
+            for l in np.unique(label_data):
+                mask = label_data == l
+                if np.count_nonzero(mask):
+                    mask_boundary = segmentation.find_boundaries(mask, connectivity=1, mode='inner', background=0)
+                else:
+                    mask_boundary = mask
+
+                label_data[mask] = -1  # set the label to -1 to avoid it being considered as a boundary or background
+                label_data[mask_boundary] = l  # insert the boundary back into the label data
+
+            # get the inputs for the helper function (first label, second label, label support)
+            input_args = []
+            nb_labels = len(label_to_channel_map)
+            for label1 in range(0, nb_labels):
+                for label2 in range(label1 + 1, nb_labels):
+                    input_args.append([label1, label2, label_data])
+
+            # calculate distances in parallel
+            nb_cpus = os.cpu_count()
+            with Pool(nb_cpus-1) as p:
+                min_dists = list(tqdm(p.imap(get_distance, input_args), total=len(input_args)))
+
+            min_dist_mat = convert_dists_to_distance_matrix(min_dists, nb_labels)
+
+            # save the minimum distance matrix
+            if output_fpaths:
+                np.save(output_fpaths[idx], min_dist_mat)
+
+            # nan values can happen if a case does not have a label. In this case the contribution from this case is ignored
+            # by setting the distance to np.Inf
+            min_dist_mat[np.isnan(min_dist_mat)] = np.Inf
+
+        # get the minimum distance matrix over all distance matrices
+        if min_min_dist_mat is None:
+            min_min_dist_mat = min_dist_mat
+        else:
+            min_min_dist_mat = np.minimum(min_min_dist_mat, min_dist_mat)
+
+    return min_min_dist_mat
 
 
 def get_average_volume_ratio_matrix(label_support):
@@ -308,7 +418,7 @@ def get_merged_label_dataframe(label_paths,
         label_to_name_map = {label: name for label, name in label_to_name_map.items() if label in label_to_channel_map}
 
     print("Calculating distance matrix...")
-    distance_matrix = get_distance_matrix(label_support)
+    distance_matrix = get_distance_matrix_from_label_support(label_support)
     print("Calculating average volume ratio matrix...")
     average_volume_ratio_matrix = get_average_volume_ratio_matrix(label_support)
     print("Calculating adjacency matrix...")
