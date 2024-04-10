@@ -11,14 +11,25 @@ from skimage import segmentation
 from tqdm import tqdm
 
 
-def get_label_to_channel_mapping(label_paths):
+def get_label_to_channel_mapping(label_paths, save_path=None, overwrite=True):
     """
     This function creates a mapping from not necessarily consecutive input labels to consecutive channel numbers.
     This is useful for creating a one-hot encoding of the labels.
     The mapping is created by finding all unique labels in the label_paths and then sorting them.
-    :param label_paths:
+    :param label_paths: list of paths to the label files
+    :param save_path: path to save the label_to_channel_map
+    :param overwrite: if True, the label_to_channel_map is calculated and saved, otherwise the function will load
     :return: label_to_channel_map: a dictionary that maps each label to a channel number
     """
+
+    # check if save_path directory exists
+    if save_path:
+        assert os.path.exists(os.path.dirname(save_path)), f"Output directory {os.path.dirname(save_path)} does not exist"
+
+    if save_path and not overwrite and os.path.exists(save_path):
+        print(f"Loading label to channel mapping from {save_path}")
+        label_to_channel_map = pd.read_csv(save_path, index_col='label').to_dict()["channel"]
+        return label_to_channel_map
 
     # find all unique labels in the label_paths
     all_unique_labels = set()
@@ -33,6 +44,12 @@ def get_label_to_channel_mapping(label_paths):
     # create a mapping from label to channel
     for i, label in enumerate(all_unique_labels):
         label_to_channel_map[label] = i
+
+    if save_path:
+        label_to_channel_df = pd.DataFrame({"label": list(label_to_channel_map.keys()),
+                                            "channel": list(label_to_channel_map.values())})
+        label_to_channel_df.to_csv(save_path, index=False)
+        print(f"Saved label to channel mapping to {save_path}")
 
     return label_to_channel_map
 
@@ -223,6 +240,7 @@ def get_distance_matrix_from_input_label_files(label_paths, label_to_channel_map
             label_data = np.vectorize(label_to_channel_map.get)(label_data)
 
             # keep only the boundaries of the labels to speed up the distance calculation
+            print("Calculating label boundaries...")
             for l in np.unique(label_data):
                 mask = label_data == l
                 if np.count_nonzero(mask):
@@ -233,6 +251,7 @@ def get_distance_matrix_from_input_label_files(label_paths, label_to_channel_map
                 label_data[mask] = -1  # set the label to -1 to avoid it being considered as a boundary or background
                 label_data[mask_boundary] = l  # insert the boundary back into the label data
 
+            print("Calculating distance matrix...")
             # get the inputs for the helper function (first label, second label, label support)
             input_args = []
             nb_labels = len(label_to_channel_map)
@@ -242,6 +261,7 @@ def get_distance_matrix_from_input_label_files(label_paths, label_to_channel_map
 
             # calculate distances in parallel
             nb_cpus = os.cpu_count()
+            print(f"Parallel processing with {nb_cpus} CPUs...")
             with Pool(nb_cpus-1) as p:
                 min_dists = list(tqdm(p.imap(get_distance, input_args), total=len(input_args)))
 

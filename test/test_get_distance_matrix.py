@@ -33,7 +33,10 @@ class TestGetDistanceMatrix(unittest.TestCase):
 
     def test_get_distance_matrix_from_input_label_files(self):
         label_paths = natsorted(glob(os.path.join(PROJ_ROOT, "data/task2153_mind/input/dataset/labelsTr/*.nii.gz")))
-        label_to_channel_map = get_label_to_channel_mapping(label_paths)
+
+        get_label_to_channel_map_save_path = os.path.join(PROJ_ROOT, "data/task2153_mind/output/label_to_channel.csv")
+        os.makedirs(os.path.dirname(get_label_to_channel_map_save_path), exist_ok=True)
+        label_to_channel_map = get_label_to_channel_mapping(label_paths, save_path=get_label_to_channel_map_save_path, overwrite=False)
         output_fpaths = [os.path.join(PROJ_ROOT, "data/task2153_mind/output/distance_matrices/", os.path.basename(p).
                                       replace(".nii.gz", "_distance_matrix.npy")) for p in label_paths]
 
@@ -44,7 +47,7 @@ class TestGetDistanceMatrix(unittest.TestCase):
                                                             label_to_channel_map,
                                                             output_fpaths,
                                                             overwrite=True,
-                                                            debug=True)
+                                                            debug=False)
 
         # plot the result
         plt.imshow(result)
