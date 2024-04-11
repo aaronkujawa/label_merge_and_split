@@ -260,9 +260,9 @@ def get_distance_matrix_from_input_label_files(label_paths, label_to_channel_map
                     input_args.append([label1, label2, label_data])
 
             # calculate distances in parallel
-            nb_cpus = os.cpu_count()
+            nb_cpus = os.cpu_count()-1
             print(f"Parallel processing with {nb_cpus} CPUs...")
-            with Pool(nb_cpus-1) as p:
+            with Pool(nb_cpus) as p:
                 min_dists = list(tqdm(p.imap(get_distance, input_args), total=len(input_args)))
 
             min_dist_mat = convert_dists_to_distance_matrix(min_dists, nb_labels)
