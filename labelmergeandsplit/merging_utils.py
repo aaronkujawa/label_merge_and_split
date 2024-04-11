@@ -403,6 +403,9 @@ def get_merged_label_dataframe(label_paths,
                                distance_threshold=1.0,
                                volume_ratio_threshold=3.5,
                                dont_merge_labels=[0,],
+                               label_to_channel_csv_path=None,
+                               distance_matrix_from_label_support=True,
+                               distance_matrix_paths=None,
                                output_dir=None,
                                debug=False):
     """
@@ -414,11 +417,24 @@ def get_merged_label_dataframe(label_paths,
     :param volume_ratio_threshold: an upper threshold for the average volume ratio matrix
     :param dont_merge_labels: a list of labels that should not be merged, for example the background label, because
     the preprocessing might depend on the background image intensities
+    :param label_to_channel_csv_path: if provided, the label to channel mapping is loaded from this file, otherwise the
+    label to channel mapping is calculated from the label paths
+    :param distance_matrix_from_label_support: if True, the distance matrix is calculated from the label support, otherwise
+    the distance matrix is calculated from the input label files
+    :param distance_matrix_paths: list of paths to save/load the minimum distance matrices
     :param output_dir: path to the output directory where the merged_labels.csv file and the label_support.pt are saved
     :param debug: if True, only a subset of the labels is used for testing
     :return: label_dataframe: a pandas dataframe that contains the original labels, channels, merged labels and label names,
     merged label names and a list of original labels that are merged into the merged label
     """
+
+    if debug:
+        nb_test_files = 8
+        print(f"Debug mode: reducing number of input/output files to {nb_test_files} ...")
+        label_paths = label_paths[:nb_test_files]
+        if distance_matrix_paths:
+            distance_matrix_paths = distance_matrix_paths[:nb_test_files]
+
 
     if output_dir:
         assert(os.path.exists(output_dir)), f"Output directory {output_dir} does not exist"
@@ -426,19 +442,32 @@ def get_merged_label_dataframe(label_paths,
 
     label_to_name_map = pd.read_csv(label_to_name_csv_path, index_col=0).to_dict()["name"]
     print("Getting label to channel mapping...")
-    label_to_channel_map = get_label_to_channel_mapping(label_paths)
+    if label_to_channel_csv_path:
+        label_to_channel_map = pd.read_csv(label_to_channel_csv_path, index_col='label').to_dict()["channel"]
+    else:
+        label_to_channel_map = get_label_to_channel_mapping(label_paths)
+
     print("Getting label support...")
     label_support = get_label_support(label_paths, label_to_channel_map, save_path=label_support_save_path)
 
     if debug:
         # reduce number of labels
+        print("Debug mode: reducing number of labels ...")
         nb_test_labels = 10
         label_support = label_support[:nb_test_labels, ...]
         label_to_channel_map = {label: channel for label, channel in label_to_channel_map.items() if channel < nb_test_labels}
         label_to_name_map = {label: name for label, name in label_to_name_map.items() if label in label_to_channel_map}
 
+
     print("Calculating distance matrix...")
-    distance_matrix = get_distance_matrix_from_label_support(label_support)
+    if distance_matrix_from_label_support:
+        distance_matrix = get_distance_matrix_from_label_support(label_support)
+    else:
+        distance_matrix = get_distance_matrix_from_input_label_files(label_paths,
+                                                                     label_to_channel_map,
+                                                                     output_fpaths=distance_matrix_paths,
+                                                                     overwrite=False,
+                                                                     debug=debug)
     print("Calculating average volume ratio matrix...")
     average_volume_ratio_matrix = get_average_volume_ratio_matrix(label_support)
     print("Calculating adjacency matrix...")
