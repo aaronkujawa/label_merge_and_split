@@ -47,7 +47,7 @@ class TestGetDistanceMatrix(unittest.TestCase):
                                                             label_to_channel_map,
                                                             output_fpaths,
                                                             overwrite=True,
-                                                            debug=False)
+                                                            debug=True)
 
         # plot the result
         plt.imshow(result)
