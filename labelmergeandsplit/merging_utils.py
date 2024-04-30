@@ -98,58 +98,44 @@ def get_min_dist_mat_from_edt(label_data, label_to_channel_map=None, one_hot=Fal
     The input can be either a one-hot encoded label array or a label array with original labels.
     :param label_data: data array of shape (H, W, D) if one_hot is False or (C, H, W, D) if one_hot is True
     :param label_to_channel_map: a dictionary that maps each label to a consecutive channel number
-    :param one_hot: if True, the label_data is one-hot encoded, otherwise the label_data contains original labels
+    :param one_hot: if True, label_data is assumed to be one-hot encoded, otherwise the label_data is assumed to
+    contain original labels
+    :param spacing: voxel spacing in each spatial dimension of label_data
     :return: min_dist_mat: an array of shape (num_labels, num_labels) that contains the minimum distances between
     original labels
     """
     print("Calculating EDTs for each channel...")
+
     if one_hot:
         channels = range(label_data.shape[0])
         nb_labels = label_data.shape[0]
-        edts = torch.zeros_like(label_data, device="cuda")
 
+        masks = torch.zeros((nb_labels,) + label_data.shape, device="cuda")
         for c in channels:
             mask = label_data[c]
-            # insert channel dimension for distance_transform_edt
-            mask = mask.unsqueeze(0)
-            if torch.sum(mask) > 0:
-                # invert mask for edt only
-                mask_inv = 1 - mask
-                out = distance_transform_edt(mask_inv, sampling=spacing)
-                edts[c] = out
-            else:
-                edts[c] = -torch.inf  # set to -inf to avoid merging with empty labels
+            masks[c] = mask
 
-        masks = label_data
     else:
         labels = label_to_channel_map.keys()
         nb_labels = len(label_to_channel_map)
 
-        edts = torch.zeros((nb_labels, ) + label_data.shape, device="cuda")
         masks = torch.zeros((nb_labels,) + label_data.shape, device="cuda")
-
         for l in labels:
             c = label_to_channel_map[l]
             mask = torch.tensor(label_data == l, dtype=torch.float32, device="cuda")
-            # insert channel dimension for distance_transform_edt
-            mask = mask.unsqueeze(0)
-            if torch.sum(mask) > 0:
-                # invert mask for edt only
-                mask_inv = 1 - mask
-                out = distance_transform_edt(mask_inv, sampling=spacing)
-                edts[c] = out
-                masks[c] = mask
-            else:
-                edts[c] = torch.inf  # set to inf so that it is ignored in the minimization over distance matrices later on
-                masks[c] = mask
+            masks[c] = mask
 
     print("Calculating distance matrix...")
     min_dist_mat = np.zeros([nb_labels, nb_labels])
-    for label1 in range(0, nb_labels):
+    for label1 in tqdm(range(0, nb_labels)):
+        mask_inv = 1 - masks[label1]
+        fall_back_distance = torch.inf  # if the label is not present, set the distance to this value
+        edt = distance_transform_edt(mask_inv.unsqueeze(0), sampling=spacing)[0] if masks[label1].any() \
+            else torch.ones_like(mask_inv)*fall_back_distance
         for label2 in range(label1 + 1, nb_labels):
 
             # get all distance values from label1 that are part of label2
-            masked_edt_vals = edts[label1][masks[label2] > 0]
+            masked_edt_vals = edt[masks[label2] > 0]
             min_dist = torch.min(masked_edt_vals) if len(masked_edt_vals) > 0 else np.Inf
 
             min_dist_mat[label1, label2] = min_dist
@@ -356,7 +342,7 @@ def get_orig_to_merged_label_map(adjacency_matrix, label_to_channel_map, dont_me
 
 
 def get_merged_label_dataframe(label_paths,
-                               label_to_name_csv_path,
+                               label_to_name_csv_path=None,
                                distance_threshold=1.0,
                                volume_ratio_threshold=3.5,
                                dont_merge_labels=[0,],
@@ -392,12 +378,16 @@ def get_merged_label_dataframe(label_paths,
         if distance_matrix_paths:
             distance_matrix_paths = distance_matrix_paths[:nb_test_files]
 
-
     if output_dir:
         assert(os.path.exists(output_dir)), f"Output directory {output_dir} does not exist"
         label_support_save_path = os.path.join(output_dir, "label_support.pt")
+    else:
+        label_support_save_path = None
 
-    label_to_name_map = pd.read_csv(label_to_name_csv_path, index_col=0).to_dict()["name"]
+    if label_to_name_csv_path:
+        label_to_name_map = pd.read_csv(label_to_name_csv_path, index_col=0).to_dict()["name"]
+    else:
+        label_to_name_map = {}
     print("Getting label to channel mapping...")
     if label_to_channel_csv_path:
         label_to_channel_map = pd.read_csv(label_to_channel_csv_path, index_col='label').to_dict()["channel"]
@@ -420,6 +410,7 @@ def get_merged_label_dataframe(label_paths,
     if distance_matrix_from_label_support:
         distance_matrix = get_distance_matrix_from_label_support(label_support)
     else:
+        label_support = label_support.cpu()  # move to CPU to free up GPU memory for distance matrix calculation
         distance_matrix = get_distance_matrix_from_input_label_files(label_paths,
                                                                      label_to_channel_map,
                                                                      output_fpaths=distance_matrix_paths,
@@ -435,18 +426,24 @@ def get_merged_label_dataframe(label_paths,
     # create a pandas dataframe that contains the original labels, channels, merged labels and label names
     label_dataframe = pd.DataFrame(columns=["label", "channel", "merged_label", "name", "merged_label_name", "labels_in_merge"])
 
-    assert len(label_to_channel_map) == len(orig_to_merged_label_map) == len(label_to_name_map), \
-        (f"Lengths of label_to_channel_map, orig_to_merged_label_map and label_to_name_map do not match, "
-         f"{len(label_to_channel_map)=}, {len(orig_to_merged_label_map)=}, {len(label_to_name_map)=}")
+    assert len(label_to_channel_map) == len(orig_to_merged_label_map), \
+        (f"Lengths of label_to_channel_map, orig_to_merged_label_map do not match, "
+         f"{len(label_to_channel_map)=}, {len(orig_to_merged_label_map)=}")
+
+    assert (len(label_to_name_map) == 0 or len(label_to_name_map) == len(label_to_channel_map)), \
+        (f"Lengths of label_to_name_map, label_to_channel_map do not match, "
+         f"{len(label_to_name_map)=}, {len(label_to_channel_map)=}")
 
     label_dataframe["label"] = list(label_to_channel_map.keys())
     label_dataframe["channel"] = list(label_to_channel_map.values())
     label_dataframe["merged_label"] = [orig_to_merged_label_map[label] for label in label_to_channel_map.keys()]
-    label_dataframe["name"] = [label_to_name_map[label] for label in label_to_channel_map.keys()]
-    label_dataframe["merged_label_name"] = \
-        ["merged " + str(len(label_dataframe[label_dataframe["merged_label"] == merged_label])) + " labels: " +
-         "+".join(label_dataframe[label_dataframe["merged_label"] == merged_label]["name"].tolist()) for merged_label
-         in label_dataframe["merged_label"]]
+
+    if label_to_name_map:
+        label_dataframe["name"] = [label_to_name_map[label] for label in label_to_channel_map.keys()]
+        label_dataframe["merged_label_name"] = \
+            ["merged " + str(len(label_dataframe[label_dataframe["merged_label"] == merged_label])) + " labels: " +
+             "+".join(label_dataframe[label_dataframe["merged_label"] == merged_label]["name"].tolist()) for merged_label
+             in label_dataframe["merged_label"]]
     label_dataframe["labels_in_merge"] = \
         [label_dataframe[label_dataframe["merged_label"] == merged_label]["label"].tolist() for merged_label
          in label_dataframe["merged_label"]]
