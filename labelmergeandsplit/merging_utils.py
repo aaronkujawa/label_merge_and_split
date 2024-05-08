@@ -83,6 +83,7 @@ def get_label_support(label_paths, label_to_channel_map, save_path=None):  # equ
         # convert to int16 to save space (max value allowed: 32767)
         assert (torch.max(label_support) < 32767)
         label_support = label_support.to(torch.int16)
+
         print(f"Saving label support to {save_path}")
         torch.save(label_support, save_path)
 
@@ -502,13 +503,13 @@ def get_training_prior(label_support, merged_labels_csv_path, merged_prior=False
     # load the merged labels
     merged_labels_dataframe = pd.read_csv(merged_labels_csv_path, index_col='channel')
 
-    # normalize the label support to sum to 1 label-wise across the volume
-    label_support_max_per_channel = torch.amax(label_support, dim=(1, 2, 3), keepdim=True)
+    label_support = label_support.float()  # convert to float for normalization
+    for ch in range(label_support.shape[0]):
+        channel_sum = torch.sum(label_support[ch]) # normalize the label support to sum to 1 label-wise across the volume
+        if channel_sum > 0:  # avoid division by zero
+            label_support[ch] = label_support[ch] / channel_sum
 
-    # avoid division by zero
-    label_support = label_support / label_support_max_per_channel
-
-    # get the label with the highest label support at each voxel
+    # get the label with the highest normalized label support at each voxel
     training_prior = torch.argmax(label_support, dim=0).type(torch.int)
 
     if merged_prior:
