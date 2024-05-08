@@ -2,6 +2,7 @@ import pandas as pd
 import torch
 import monai
 import nibabel as nib
+from .merging_utils import load_label_support
 
 
 def get_fuzzy_prior_fudged(label_support_path):
@@ -11,7 +12,7 @@ def get_fuzzy_prior_fudged(label_support_path):
     :return: fudged fuzzy prior
     """
     if 'fuzzy_prior' not in locals():
-        label_support = torch.load(label_support_path)
+        label_support = load_label_support(label_support_path)
 
         fuzzy_prior = label_support/len(label_support)  # convert label_support to fuzzy prior
         fuzzy_prior = fuzzy_prior.to("cpu")

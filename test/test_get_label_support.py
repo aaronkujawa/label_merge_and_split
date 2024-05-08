@@ -16,7 +16,10 @@ class TestGetLabelSupport(unittest.TestCase):
         label_to_channel_map = get_label_to_channel_mapping(label_paths)
 
         output_dir = os.path.join(PROJ_ROOT, "data/task2153_mind/output")
-        result = get_label_support(label_paths, label_to_channel_map, save_path=os.path.join(output_dir, "label_support.pt"))
+        result = get_label_support(label_paths,
+                                   label_to_channel_map,
+                                   save_path=os.path.join(output_dir, "label_support.pt"),
+                                   compress=True)
 
         # check that the result is a tensor
         self.assertIsInstance(result, torch.Tensor), "Result is not a tensor"

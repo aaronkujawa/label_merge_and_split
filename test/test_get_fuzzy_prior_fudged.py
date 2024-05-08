@@ -10,7 +10,7 @@ from utils.plot_matrix_slices import plot_matrix_slices
 
 class TestGetFuzzyPriorFudged(unittest.TestCase):
     def test_get_fuzzy_prior_fudged(self):
-        label_support_path = os.path.join(PROJ_ROOT, "data/task2153_mind/output/label_support.pt")
+        label_support_path = os.path.join(PROJ_ROOT, "data/task2153_mind/output/label_support.pt.npz")
         fuzzy_prior_fudged = get_fuzzy_prior_fudged(label_support_path)
 
         reference_space_image = nib.load(os.path.join(PROJ_ROOT, "data/task2153_mind/input/dataset/labelsTr/mind_000.nii.gz"))

@@ -11,7 +11,6 @@ from scipy.spatial import cKDTree
 from skimage import segmentation
 from tqdm import tqdm
 
-
 def get_label_to_channel_mapping(label_paths, save_path=None, overwrite=True):
     """
     This function creates a mapping from not necessarily consecutive input labels to consecutive channel numbers.
@@ -55,7 +54,7 @@ def get_label_to_channel_mapping(label_paths, save_path=None, overwrite=True):
     return label_to_channel_map
 
 
-def get_label_support(label_paths, label_to_channel_map, save_path=None):  # equation 1
+def get_label_support(label_paths, label_to_channel_map, save_path=None, compress=True):  # equation 1
     """
     This function calculates the label support for each label in found in the label_paths data arrays, i.e. it counts
     the number of times each label appears in the label_paths data arrays at each voxel.
@@ -63,6 +62,7 @@ def get_label_support(label_paths, label_to_channel_map, save_path=None):  # equ
     :param label_paths: list of paths to the label files
     :param label_to_channel_map: a dictionary that maps each label to a consecutive channel number
     :param save_path: path to save the label support
+    :
     :return: label_support: an array of shape (num_labels, *data_shape) that contains the label support for each label
     """
     for i, parc_path in enumerate(tqdm(label_paths)):
@@ -80,12 +80,36 @@ def get_label_support(label_paths, label_to_channel_map, save_path=None):  # equ
             label_support[channel] += to_add_to_channel
 
     if save_path:
-        # convert to int16 to save space (max value allowed: 32767)
-        assert (torch.max(label_support) < 32767)
-        label_support = label_support.to(torch.int16)
+        # # convert to int16 to save space (max value allowed: 32767)
+        # assert (torch.max(label_support) < 32767)
+        # label_support = label_support.to(torch.int16)
 
-        print(f"Saving label support to {save_path}")
-        torch.save(label_support, save_path)
+        if not compress:
+            print(f"Uncompressed saving of label support to {save_path}")
+            torch.save(label_support, save_path)
+        else:
+            # append ".npz" to the save_path
+            save_path = save_path + ".npz"
+            print(f"Compressed saving of label support to {save_path}")
+
+            np.savez_compressed(save_path, label_support=label_support.cpu().numpy())
+
+    return label_support
+
+
+def load_label_support(label_support_path, device="cuda"):
+    """
+    This function loads the label support from the label_support_path. The label support is a tensor that contains the
+    label support for each label.
+    :param label_support_path: path to the label support
+    :param device: device to load the label support to
+    :return: label_support: an array of shape (num_labels, *data_shape) that contains the label support for each label
+    """
+    if label_support_path.endswith(".npz"):
+        print(f"Loading compressed label support from {label_support_path}")
+        label_support = torch.from_numpy(np.load(label_support_path)["label_support"]).to(device)
+    else:
+        label_support = torch.load(label_support_path, map_location=device)
 
     return label_support
 
@@ -407,7 +431,7 @@ def get_merged_label_dataframe(label_paths,
         label_to_name_map = {label: name for label, name in label_to_name_map.items() if label in label_to_channel_map}
 
 
-    print("Calculating distance matrix...")
+    print("Calculating distance matrix...", flush=True)
     if distance_matrix_from_label_support:
         distance_matrix = get_distance_matrix_from_label_support(label_support)
     else:
