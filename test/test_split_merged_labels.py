@@ -1,16 +1,16 @@
 import unittest
 from config.config import PROJ_ROOT
 import os
-from labelmergeandsplit.splitting_utils import get_fuzzy_prior_fudged, split_merged_labels
+from labelmergeandsplit.splitting_utils import get_fuzzy_prior_fudged, split_merged_labels_paths
 from natsort import natsorted
 from glob import glob
 
 from utils.timing import tic, toc
 
 
-class TestSplitMergedLabels(unittest.TestCase):
+class TestSplitMergedLabelsPaths(unittest.TestCase):
     def test_get_fuzzy_prior_fudged(self):
-        label_support_path = os.path.join(PROJ_ROOT, "data/task2153_mind/output/label_support.pt")
+        label_support_path = os.path.join(PROJ_ROOT, "data/task2153_mind/output/label_support.pt.npz")
         label_paths_in = natsorted(glob(os.path.join(PROJ_ROOT, "data/task2153_mind/output/predictions/merged/*.nii.gz")))
         label_paths_out = [os.path.join(PROJ_ROOT, "data/task2153_mind/output/predictions/split",
                                         os.path.basename(p).replace("merged.nii.gz", ".nii.gz")) for p in label_paths_in]
@@ -21,8 +21,8 @@ class TestSplitMergedLabels(unittest.TestCase):
         toc("get_fuzzy_prior_fudged")
 
         tic()
-        split_merged_labels(label_paths_in, label_paths_out, fuzzy_prior_fudged, merged_labels_csv_path)
-        toc("split_merged_labels")
+        split_merged_labels_paths(label_paths_in, label_paths_out, fuzzy_prior_fudged, merged_labels_csv_path)
+        toc("split_merged_labels_paths")
 
         # check if the output files exist
         for p in label_paths_out:

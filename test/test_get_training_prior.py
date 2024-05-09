@@ -12,7 +12,7 @@ from utils.plot_matrix_slices import plot_matrix_slices
 
 class TestGetTrainingPrior(unittest.TestCase):
     def test_get_training_prior(self):
-        label_support_path = os.path.join(PROJ_ROOT, "data/task2153_mind/output/label_support.pt.gz")
+        label_support_path = os.path.join(PROJ_ROOT, "data/task2153_mind/output/label_support.pt.npz")
         merged_labels_csv_path = os.path.join(PROJ_ROOT, "data/task2153_mind/output/merged_labels.csv")
 
         assert (os.path.isfile(label_support_path))

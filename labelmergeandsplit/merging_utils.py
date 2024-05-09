@@ -89,7 +89,8 @@ def get_label_support(label_paths, label_to_channel_map, save_path=None, compres
             torch.save(label_support, save_path)
         else:
             # append ".npz" to the save_path
-            save_path = save_path + ".npz"
+            if not save_path.endswith(".npz"):
+                save_path = save_path + ".npz"
             print(f"Compressed saving of label support to {save_path}")
 
             np.savez_compressed(save_path, label_support=label_support.cpu().numpy())
@@ -390,7 +391,7 @@ def get_merged_label_dataframe(label_paths,
     :param distance_matrix_from_label_support: if True, the distance matrix is calculated from the label support, otherwise
     the distance matrix is calculated from the input label files
     :param distance_matrix_paths: list of paths to save/load the minimum distance matrices
-    :param output_dir: path to the output directory where the merged_labels.csv file and the label_support.pt are saved
+    :param output_dir: path to the output directory where the merged_labels.csv file and the label_support.pt.npz are saved
     :param debug: if True, only a subset of the labels is used for testing
     :return: label_dataframe: a pandas dataframe that contains the original labels, channels, merged labels and label names,
     merged label names and a list of original labels that are merged into the merged label

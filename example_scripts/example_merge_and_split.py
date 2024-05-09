@@ -4,7 +4,7 @@ from natsort import natsorted
 import nibabel as nib
 
 from labelmergeandsplit.merging_utils import get_merged_label_dataframe, merge_label_volumes
-from labelmergeandsplit.splitting_utils import get_fuzzy_prior_fudged, split_merged_labels
+from labelmergeandsplit.splitting_utils import get_fuzzy_prior_fudged, split_merged_labels_paths
 from utils.plot_matrix_slices import plot_matrix_slices
 
 from config.config import PROJ_ROOT
@@ -38,7 +38,7 @@ merged_labels_csv_path = os.path.join(output_dir, "merged_labels.csv")
 merge_label_volumes(label_paths_in, merged_label_paths_out, merged_labels_csv_path)
 
 # get the fudged fuzzy prior
-label_support_path = os.path.join(output_dir, "label_support.pt")
+label_support_path = os.path.join(output_dir, "label_support.pt.npz")
 fuzzy_prior_fudged = get_fuzzy_prior_fudged(label_support_path)
 
 # split the merged labels
@@ -46,7 +46,7 @@ label_paths_merged_in = merged_label_paths_out
 label_paths_split_out = [os.path.join(output_dir, "predictions/split",
                                       os.path.basename(p).replace("merged.nii.gz", ".nii.gz"))
                          for p in label_paths_merged_in]
-split_merged_labels(label_paths_merged_in, label_paths_split_out, fuzzy_prior_fudged, merged_labels_csv_path)
+split_merged_labels_paths(label_paths_merged_in, label_paths_split_out, fuzzy_prior_fudged, merged_labels_csv_path)
 
 # plot original, merged, and split labels for first file
 plot_example_path = label_paths_in[0]
