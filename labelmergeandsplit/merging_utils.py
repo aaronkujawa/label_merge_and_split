@@ -65,8 +65,17 @@ def get_label_support(label_paths, label_to_channel_map, save_path=None, compres
     :
     :return: label_support: an array of shape (num_labels, *data_shape) that contains the label support for each label
     """
+
     for i, parc_path in enumerate(tqdm(label_paths)):
-        parc_data = torch.tensor(nib.load(parc_path).get_fdata().astype(int), device="cuda")
+        parc_nii = nib.load(parc_path)
+        parc_data = torch.tensor(parc_nii.get_fdata().astype(int), device="cuda")
+
+        # check if all label files have the same affine
+        if i == 0:
+            reference_affine = parc_nii.affine
+        else:
+            assert np.allclose(parc_nii.affine, reference_affine, rtol=0.01), ("All label files must have the same "
+                                                                               "affine to create label support.")
 
         if i == 0:
             nb_labels = len(label_to_channel_map)
