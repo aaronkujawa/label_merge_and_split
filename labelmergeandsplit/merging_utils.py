@@ -513,38 +513,28 @@ def merge_label_volumes(label_paths_in, label_paths_out, merged_labels_csv_path)
         print(f"Saved merged label volume to {label_path_out}")
 
 
-def get_training_prior(label_support, merged_labels_csv_path, merged_prior=False):
+def get_training_prior(label_support, channel_to_label_mapping=None):
     """
     This function calculates the training prior from the label support. The training prior is a volume that can be
     passed as an additional input channel to the CNN to help with patch-based training.
     At each voxel the training prior is the label that has the highest label support when normalized label-wise
     to sum to 1 across the volume. This makes sure small labels are not ignored in the training prior.
     :param label_support: an array of shape (num_labels, *data_shape) that contains the label support for each label
-    :param merged_labels_csv_path: path to the csv file that contains the merged labels
-    :param merged_prior: if True, the labels of the prior will be merged, otherwise the original labels will be used
+    :param label_mapping: a dictionary that maps each channel to the original or merged label
     :return: training_prior: an array of shape (*data_shape) that contains the training prior
     """
-
-    # load the merged labels
-    merged_labels_dataframe = pd.read_csv(merged_labels_csv_path, index_col='channel')
-
     label_support = label_support.float()  # convert to float for normalization
     for ch in range(label_support.shape[0]):
-        channel_sum = torch.sum(label_support[ch]) # normalize the label support to sum to 1 label-wise across the volume
+        channel_sum = torch.sum(label_support[ch])  # normalize the label support to sum to 1 label-wise across the volume
         if channel_sum > 0:  # avoid division by zero
             label_support[ch] = label_support[ch] / channel_sum
 
     # get the label with the highest normalized label support at each voxel
     training_prior = torch.argmax(label_support, dim=0).type(torch.int)
 
-    if merged_prior:
-        mapping_dict = merged_labels_dataframe['merged_label'].to_dict()
-    else:
-        mapping_dict = merged_labels_dataframe['label'].to_dict()
-
-    # map the channel to the original or merged label
+    # map each channel to the original or merged label
     training_prior_mapped = torch.zeros(training_prior.shape, dtype=torch.int)
-    for channel, label in mapping_dict.items():
+    for channel, label in channel_to_label_mapping.items():
         training_prior_mapped[training_prior == channel] = label
 
     return training_prior_mapped
