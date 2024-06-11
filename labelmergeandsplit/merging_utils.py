@@ -490,6 +490,25 @@ def get_merged_label_dataframe(label_paths,
     return label_dataframe
 
 
+def map_labels_in_volume(label_data, label_mapping):
+    """
+    This function maps the labels in label_data according to the mapping in label_mapping.
+    :param label_data: array that contains the labels
+    :param label_mapping: a dictionary that maps each original label to a merged label
+    :return: label_data_mapped: array that contains the mapped labels
+    """
+    # map labels using torch if cuda is available
+    if torch.cuda.is_available():
+        label_data = torch.tensor(label_data, device="cuda")
+        label_data_mapped = torch.zeros_like(label_data, device="cuda")
+        for orig_label, mapped_label in label_mapping.items():
+            label_data_mapped[label_data == orig_label] = mapped_label
+    else:
+        # map labels using vectorize
+        label_data_mapped = np.vectorize(label_mapping.get, otypes=[np.float32])(label_data)
+
+    return label_data_mapped
+
 def merge_label_volumes(label_paths_in, label_paths_out, merged_labels_csv_path):
     """
     This function merges the label volumes according to the merged_labels_csv_path and saves the merged label volumes
@@ -505,17 +524,11 @@ def merge_label_volumes(label_paths_in, label_paths_out, merged_labels_csv_path)
         label_nii = nib.load(label_path_in)
         label_data = label_nii.get_fdata()
 
-        # merge labels using torch if cuda is available
-        if torch.cuda.is_available():
-            label_data_merged = torch.tensor(label_data, device="cuda")
-            for orig_label, merged_label in orig_to_merged_label_map.items():
-                label_data_merged[label_data == orig_label] = merged_label
-            label_data_merged = label_data_merged.cpu().numpy()
-        else:
-            # merge labels using vectorize
-            label_data_merged = np.vectorize(orig_to_merged_label_map.get, otypes=[np.float32])(label_data)
+        # map labels
+        label_data_merged = map_labels_in_volume(label_data, orig_to_merged_label_map)
 
         # save file
+        label_data_merged = label_data_merged.cpu().numpy() if label_data_merged.is_cuda else label_data_merged
         label_data_merged_nii = nib.Nifti1Image(label_data_merged, label_nii.affine)
         nib.save(label_data_merged_nii, label_path_out)
 
