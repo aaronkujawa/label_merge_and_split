@@ -15,26 +15,30 @@ def get_fuzzy_prior_fudged(label_support_path):
         label_support = load_label_support(label_support_path)
 
         label_support = label_support.to("cpu")
-        fuzzy_prior = label_support/len(label_support)  # convert label_support to fuzzy prior
+        fuzzy_prior = label_support #/len(label_support)  # convert label_support to fuzzy prior
 
         # apply gaussian blur to fuzzy prior image, because otherwise, the probabilities decrease too quickly
-        smooth = monai.transforms.GaussianSmooth(sigma=5.0, approx='erf')
+        smooth = monai.transforms.GaussianSmooth(sigma=10.0, approx='erf')
         fuzzy_prior_fudged = torch.zeros_like(fuzzy_prior, device="cuda")
 
         for l in range(fuzzy_prior.shape[0]):
 
-            use_smoothing_strategy = True  # smoothing strategy is faster than distance transform when cuCIM is available
+            use_smoothing_strategy = False  # smoothing strategy is faster than distance transform when cuCIM is not available
 
             if use_smoothing_strategy:
-                smoothed_prior = smooth(fuzzy_prior[l]).to("cuda")
+                smoothed_prior = smooth(fuzzy_prior[l][None, :]).to("cuda").squeeze()
                 prior = smoothed_prior
             else:  # alternative: apply distance transform to fuzzy prior (needs cuCIM installed to run on GPU, otherwise it's slow)
-                edt_prior = -monai.transforms.DistanceTransformEDT()(fuzzy_prior[l].to("cuda")).to("cuda")
+                bg_mask = fuzzy_prior[l].to("cuda") == 0
+                edt_prior = -monai.transforms.DistanceTransformEDT()(bg_mask[None, :]).to("cuda").squeeze()
+
                 prior = edt_prior
 
-            # we don't want original probabilities to decrease because of the fudging, so keep the maximum of fudged
-            # and original
-            fuzzy_prior_fudged[l] = torch.maximum(prior, fuzzy_prior[l].to("cuda"))
+            # we don't want original probabilities to decrease because of the fudging, so where the original prior is
+            # greater than 0 we set the fudged prior to the original prior
+            fuzzy_prior_fudged[l] = torch.where(fuzzy_prior[l].to("cuda") > 0, fuzzy_prior[l].to("cuda"), prior)
+
+            fuzzy_prior_fudged[l] = fuzzy_prior_fudged[l]/len(label_support)
         return fuzzy_prior_fudged
 
 
@@ -70,6 +74,7 @@ def get_influence_regions(fuzzy_prior_fudged, merged_label_mapping, channel_mapp
         influence_regions[merged_label] = influence_region_orig_labels
 
     return influence_regions
+
 
 def split_merged_label(in_data, influence_regions):
     """
