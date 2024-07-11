@@ -145,7 +145,7 @@ def get_min_dist_mat_from_edt(label_data, label_to_channel_map=None, one_hot=Fal
         channels = range(label_data.shape[0])
         nb_labels = label_data.shape[0]
 
-        masks = torch.zeros((nb_labels,) + label_data.shape, device="cuda")
+        masks = torch.zeros(label_data.shape, device="cuda")
         for c in channels:
             mask = label_data[c]
             masks[c] = mask
