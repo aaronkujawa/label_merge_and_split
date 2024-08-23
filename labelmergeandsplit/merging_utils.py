@@ -171,14 +171,14 @@ def get_min_dist_mat_from_edt(label_data, label_to_channel_map=None, one_hot=Fal
 
             # get all distance values from label1 that are part of label2
             masked_edt_vals = edt[masks[label2] > 0]
-            min_dist = torch.min(masked_edt_vals) if len(masked_edt_vals) > 0 else np.Inf
+            min_dist = torch.min(masked_edt_vals) if len(masked_edt_vals) > 0 else np.inf
 
             min_dist_mat[label1, label2] = min_dist
             min_dist_mat[label2, label1] = min_dist
 
     # set diagonal to infinity
     nb_labels = min_dist_mat.shape[0]
-    min_dist_mat = min_dist_mat + np.diag([np.Inf] * nb_labels)
+    min_dist_mat = min_dist_mat + np.diag([np.inf] * nb_labels)
 
     return min_dist_mat
 
