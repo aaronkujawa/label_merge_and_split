@@ -145,7 +145,7 @@ def get_min_dist_mat_from_edt(label_data, label_to_channel_map=None, one_hot=Fal
         channels = range(label_data.shape[0])
         nb_labels = label_data.shape[0]
 
-        masks = torch.zeros(label_data.shape, device="cuda")
+        masks = torch.zeros(label_data.shape, device="cuda", dtype=torch.bool)
         for c in channels:
             mask = label_data[c]
             masks[c] = mask
@@ -154,16 +154,16 @@ def get_min_dist_mat_from_edt(label_data, label_to_channel_map=None, one_hot=Fal
         labels = label_to_channel_map.keys()
         nb_labels = len(label_to_channel_map)
 
-        masks = torch.zeros((nb_labels,) + label_data.shape, device="cuda")
+        masks = torch.zeros((nb_labels,) + label_data.shape, device="cuda", dtype=torch.bool)
         for l in labels:
             c = label_to_channel_map[l]
-            mask = torch.tensor(label_data == l, dtype=torch.float32, device="cuda")
+            mask = torch.tensor(label_data == l, dtype=torch.bool, device="cuda")
             masks[c] = mask
 
     print("Calculating distance matrix...")
     min_dist_mat = np.zeros([nb_labels, nb_labels])
     for label1 in tqdm(range(0, nb_labels)):
-        mask_inv = 1 - masks[label1]
+        mask_inv = torch.logical_not(masks[label1])
         fall_back_distance = torch.inf  # if the label is not present, set the distance to this value
         edt = distance_transform_edt(mask_inv.unsqueeze(0), sampling=spacing)[0] if masks[label1].any() \
             else torch.ones_like(mask_inv)*fall_back_distance
