@@ -84,6 +84,13 @@ def split_merged_label(in_data, influence_regions):
     merged labels and each value is the corresponding influence region labelled with original labels
     :return: data with original split labels
     """
+
+    assert(in_data.shape[1:] == influence_regions[list(influence_regions.keys())[0]].shape), \
+        (f"Shape mismatch during label splitting: {in_data.shape[1:]} != "
+         f"{influence_regions[list(influence_regions.keys())[0]].shape}. The spatial dimensions of the input data must "
+         f"match the shape of the influence regions. You may need to register the input data to the reference space of "
+         f"the influence regions and resample.")
+
     out_data = torch.zeros_like(in_data, dtype=torch.int, device="cuda")
 
     for merged_label, influence_region in influence_regions.items():
