@@ -2,17 +2,35 @@ import pandas as pd
 import torch
 import monai
 import nibabel as nib
-from .merging_utils import load_label_support
 
 
-def get_fuzzy_prior_fudged(label_support_path):
+def load_label_support(label_support_path, device="cuda"):
+    """
+    This function loads the label support from the label_support_path. The label support is a tensor that contains the
+    label support for each label.
+    :param label_support_path: path to the label support
+    :param device: device to load the label support to
+    :return: label_support: an array of shape (num_labels, *data_shape) that contains the label support for each label
+    """
+    if label_support_path.endswith(".npz"):
+        print(f"Loading compressed label support from {label_support_path}")
+        label_support = torch.from_numpy(np.load(label_support_path)["label_support"]).to(device)
+    else:
+        label_support = torch.load(label_support_path, map_location=device)
+
+    return label_support
+
+
+def get_fuzzy_prior_fudged(label_support_path, label_support=None):
     """
     Get the fudged fuzzy prior from the label support
     :param label_support_path: path to the label support file
+    :param label_support: already load label support volume (default None), if defined label_support_path is not used
     :return: fudged fuzzy prior
     """
     if 'fuzzy_prior' not in locals():
-        label_support = load_label_support(label_support_path)
+        if label_support is None:
+            label_support = load_label_support(label_support_path)
 
         label_support = label_support.to("cpu")
         fuzzy_prior = label_support #/len(label_support)  # convert label_support to fuzzy prior
