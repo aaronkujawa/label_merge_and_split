@@ -10,6 +10,7 @@ from monai.transforms import distance_transform_edt
 from scipy.spatial import cKDTree
 from skimage import segmentation
 from tqdm import tqdm
+from .splitting_utils import get_fuzzy_prior_fudged, get_influence_regions
 
 def get_label_to_channel_mapping(label_paths, save_path=None, overwrite=True):
     """
@@ -103,23 +104,6 @@ def get_label_support(label_paths, label_to_channel_map, save_path=None, compres
             print(f"Compressed saving of label support to {save_path}")
 
             np.savez_compressed(save_path, label_support=label_support.cpu().numpy())
-
-    return label_support
-
-
-def load_label_support(label_support_path, device="cuda"):
-    """
-    This function loads the label support from the label_support_path. The label support is a tensor that contains the
-    label support for each label.
-    :param label_support_path: path to the label support
-    :param device: device to load the label support to
-    :return: label_support: an array of shape (num_labels, *data_shape) that contains the label support for each label
-    """
-    if label_support_path.endswith(".npz"):
-        print(f"Loading compressed label support from {label_support_path}")
-        label_support = torch.from_numpy(np.load(label_support_path)["label_support"]).to(device)
-    else:
-        label_support = torch.load(label_support_path, map_location=device)
 
     return label_support
 
@@ -385,6 +369,7 @@ def get_merged_label_dataframe(label_paths,
                                distance_matrix_from_label_support=True,
                                distance_matrix_paths=None,
                                output_dir=None,
+                               save_influence_regions=False,
                                debug=False):
     """
     This function creates a pandas dataframe that contains the original labels, channels, merged labels and label names,
@@ -401,6 +386,7 @@ def get_merged_label_dataframe(label_paths,
     the distance matrix is calculated from the input label files
     :param distance_matrix_paths: list of paths to save/load the minimum distance matrices
     :param output_dir: path to the output directory where the merged_labels.csv file and the label_support.pt.npz are saved
+    :param save_influence_regions if True influence_regions 4D volume is also saved in the output directory
     :param debug: if True, only a subset of the labels is used for testing
     :return: label_dataframe: a pandas dataframe that contains the original labels, channels, merged labels and label names,
     merged label names and a list of original labels that are merged into the merged label
@@ -486,6 +472,27 @@ def get_merged_label_dataframe(label_paths,
     if output_dir is not None:
         label_dataframe.to_csv(os.path.join(output_dir, "merged_labels.csv"), index=False)
         print(f"Saved merged labels to {os.path.join(output_dir, 'merged_labels.csv')}")
+
+        if save_influence_regions:
+            #save also the influence regins volumes
+            # compute fuzzy_prior_fudged from label_support volume (created here so do not load it from dir)
+            fuzzy_prior_fudged = get_fuzzy_prior_fudged('path_not_use', label_support)
+            merged_label_mapping = {k: v for k, v in zip(label_dataframe['label'], label_dataframe['merged_label'])}
+            channel_mapping = {k: v for k, v in zip(label_dataframe['label'], label_dataframe['channel'])}
+            influence_regions = get_influence_regions(fuzzy_prior_fudged, merged_label_mapping, channel_mapping)
+
+            print('fuzzy_prior_fudged computed')
+            #create 4D numpy volume from influence_regions dictionary
+            influence_regions_shape = [*influence_regions[0].shape] + [len(influence_regions)]
+            influence_regions_volume = np.zeros(influence_regions_shape, dtype = np.int16)
+            for channel in influence_regions.keys():
+                influence_regions_volume[..., channel] = influence_regions[channel].cpu().numpy()
+
+            label_nii = nib.load(label_paths[0])
+            influence_regions_nii = nib.Nifti1Image(influence_regions_volume, label_nii.affine)
+            outfile_name = os.path.join(output_dir, 'influence_regions.nii.gz')
+            print(f"Saved influence regions to {outfile_name}")
+            nib.save(influence_regions_nii, outfile_name)
 
     return label_dataframe
 
