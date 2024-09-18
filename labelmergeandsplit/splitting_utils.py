@@ -105,7 +105,7 @@ def split_merged_label(in_data, influence_regions):
     :return: data with original split labels
     """
 
-    assert(in_data.shape == influence_regions[list(influence_regions.keys())[0]].shape), \
+    assert(in_data.shape[1:] == influence_regions[list(influence_regions.keys())[0]].shape), \
         (f"Shape mismatch during label splitting: {in_data.shape[1:]} != "
          f"{influence_regions[list(influence_regions.keys())[0]].shape}. The spatial dimensions of the input data must "
          f"match the shape of the influence regions. You may need to register the input data to the reference space of "
@@ -176,6 +176,8 @@ def split_merged_labels_paths_from_influence_region(label_paths_in, label_paths_
     for label_path_in, label_path_out in zip(label_paths_in, label_paths_out):
         in_nii = nib.load(label_path_in)
         in_data = torch.tensor(in_nii.get_fdata()).to("cuda")
+        # input data is expected to be a tensor with shape (C, H, W [, D])
+        in_data = in_data[None, ...]
 
         out_data = split_merged_label(in_data, influence_regions)
 
