@@ -79,9 +79,10 @@ def get_influence_regions(fuzzy_prior_fudged, merged_label_mapping, channel_mapp
 def split_merged_label(in_data, influence_regions):
     """
     Split the merged labels according to influence regions based on the influence regions.
-    :param in_data: input data with merged labels
+    :param in_data: input data with merged labels. Expected shape: (C, H, W [, D])
     :param influence_regions: influence regions with original labels. This is a dictionary, where the keys are the
-    merged labels and each value is the corresponding influence region labelled with original labels
+    merged labels and each value is the corresponding influence region labelled with original labels. Expected shape of
+    each influence region: (H, W [, D])
     :return: data with original split labels
     """
 
@@ -126,6 +127,9 @@ def split_merged_labels_paths(label_paths_in, label_paths_out, fuzzy_prior_fudge
     for label_path_in, label_path_out in zip(label_paths_in, label_paths_out):
         in_nii = nib.load(label_path_in)
         in_data = torch.tensor(in_nii.get_fdata()).to("cuda")
+
+        # input data is expected to be a tensor with shape (C, H, W [, D])
+        in_data = in_data[None, ...]
 
         out_data = split_merged_label(in_data, influence_regions)
 
