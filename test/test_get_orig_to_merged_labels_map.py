@@ -6,8 +6,9 @@ from natsort import natsorted
 from glob import glob
 import os
 
-from labelmergeandsplit.merging_utils import (get_label_to_channel_mapping, get_label_support, get_average_volume_ratio_matrix,
-                                              get_distance_matrix, get_adjacency_matrix, get_orig_to_merged_label_map)
+from labelmergeandsplit import (get_label_to_channel_mapping, get_label_support, get_average_volume_ratio_matrix,
+                                get_distance_matrix_from_label_support, get_adjacency_matrix,
+                                get_orig_to_merged_label_map)
 
 
 class TestGetAdjacencyMatrix(unittest.TestCase):
@@ -23,7 +24,7 @@ class TestGetAdjacencyMatrix(unittest.TestCase):
                                 channel < nb_test_labels}
 
         # calculate the distance matrix
-        distance_matrix = get_distance_matrix(label_support)
+        distance_matrix = get_distance_matrix_from_label_support(label_support)
         # calculate the average volume ratio matrix
         average_volume_ratio_matrix = get_average_volume_ratio_matrix(label_support)
         # calculate the adjacency matrix

@@ -2,7 +2,7 @@ import unittest
 
 from config.config import PROJ_ROOT
 import os
-from labelmergeandsplit.splitting_utils import get_fuzzy_prior_fudged
+from labelmergeandsplit import get_fuzzy_prior_fudged
 import nibabel as nib
 
 from utils.plot_matrix_slices import plot_matrix_slices

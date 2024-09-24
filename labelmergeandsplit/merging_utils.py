@@ -1,5 +1,4 @@
 import os
-from multiprocessing import Pool
 
 import networkx as nx
 import nibabel as nib
@@ -7,10 +6,10 @@ import numpy as np
 import pandas as pd
 import torch
 from monai.transforms import distance_transform_edt
-from scipy.spatial import cKDTree
-from skimage import segmentation
+
 from tqdm import tqdm
-from .splitting_utils import get_fuzzy_prior_fudged, get_influence_regions
+from .shared_utils import get_fuzzy_prior_fudged, get_influence_regions
+
 
 def get_label_to_channel_mapping(label_paths, save_path=None, overwrite=True):
     """
@@ -484,7 +483,7 @@ def get_merged_label_dataframe(label_paths,
             print('fuzzy_prior_fudged computed')
             #create 4D numpy volume from influence_regions dictionary
             influence_regions_shape = [*influence_regions[0].shape] + [len(influence_regions)]
-            influence_regions_volume = np.zeros(influence_regions_shape, dtype = np.int16)
+            influence_regions_volume = np.zeros(influence_regions_shape, dtype=np.int16)
             for channel in influence_regions.keys():
                 influence_regions_volume[..., channel] = influence_regions[channel].cpu().numpy()
 
@@ -515,6 +514,7 @@ def map_labels_in_volume(label_data, label_mapping):
         label_data_mapped = np.vectorize(label_mapping.get, otypes=[np.float32])(label_data)
 
     return label_data_mapped
+
 
 def merge_label_volumes(label_paths_in, label_paths_out, merged_labels_csv_path):
     """

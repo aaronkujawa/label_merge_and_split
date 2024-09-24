@@ -7,8 +7,8 @@ from glob import glob
 import os
 from matplotlib import pyplot as plt
 
-from labelmergeandsplit.merging_utils import (get_label_to_channel_mapping, get_label_support, get_average_volume_ratio_matrix,
-                                              get_distance_matrix, get_adjacency_matrix)
+from labelmergeandsplit import (get_label_to_channel_mapping, get_label_support, get_average_volume_ratio_matrix,
+                                              get_distance_matrix_from_label_support, get_adjacency_matrix)
 
 
 class TestGetAdjacencyMatrix(unittest.TestCase):
@@ -21,7 +21,7 @@ class TestGetAdjacencyMatrix(unittest.TestCase):
         label_support = label_support[:10, ...]
 
         # calculate the distance matrix
-        distance_matrix = get_distance_matrix(label_support)
+        distance_matrix = get_distance_matrix_from_label_support(label_support)
         # calculate the average volume ratio matrix
         average_volume_ratio_matrix = get_average_volume_ratio_matrix(label_support)
 
