@@ -1,7 +1,7 @@
 import unittest
 
 from config.config import PROJ_ROOT
-from labelmergeandsplit.merging_utils import get_label_support, get_label_to_channel_mapping
+from labelmergeandsplit import get_label_support, get_label_to_channel_mapping
 import os
 import nibabel as nib
 import torch
