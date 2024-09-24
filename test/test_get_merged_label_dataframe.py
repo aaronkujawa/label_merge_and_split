@@ -8,7 +8,7 @@ from natsort import natsorted
 from glob import glob
 import os
 
-from labelmergeandsplit.merging_utils import get_merged_label_dataframe
+from labelmergeandsplit import get_merged_label_dataframe
 
 
 class TestGetMergedLabelDataframe(unittest.TestCase):

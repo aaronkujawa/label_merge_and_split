@@ -5,7 +5,7 @@ import torch
 
 from config.config import PROJ_ROOT
 import os
-from labelmergeandsplit.merging_utils import get_training_prior, load_label_support
+from labelmergeandsplit import get_training_prior, load_label_support
 
 from utils.timing import tic, toc
 from utils.plot_matrix_slices import plot_matrix_slices

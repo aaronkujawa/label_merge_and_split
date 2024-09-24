@@ -7,7 +7,7 @@ from glob import glob
 import os
 from matplotlib import pyplot as plt
 
-from labelmergeandsplit.merging_utils import get_label_to_channel_mapping, get_label_support, get_average_volume_ratio_matrix
+from labelmergeandsplit import get_label_to_channel_mapping, get_label_support, get_average_volume_ratio_matrix
 
 
 class TestGetAverageVolumeRatioMatrix(unittest.TestCase):
