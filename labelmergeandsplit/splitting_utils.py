@@ -2,17 +2,36 @@ import pandas as pd
 import torch
 import monai
 import nibabel as nib
-from .merging_utils import load_label_support
+import numpy as np
 
 
-def get_fuzzy_prior_fudged(label_support_path):
+def load_label_support(label_support_path, device="cuda"):
+    """
+    This function loads the label support from the label_support_path. The label support is a tensor that contains the
+    label support for each label.
+    :param label_support_path: path to the label support
+    :param device: device to load the label support to
+    :return: label_support: an array of shape (num_labels, *data_shape) that contains the label support for each label
+    """
+    if label_support_path.endswith(".npz"):
+        print(f"Loading compressed label support from {label_support_path}")
+        label_support = torch.from_numpy(np.load(label_support_path)["label_support"]).to(device)
+    else:
+        label_support = torch.load(label_support_path, map_location=device)
+
+    return label_support
+
+
+def get_fuzzy_prior_fudged(label_support_path, label_support=None):
     """
     Get the fudged fuzzy prior from the label support
     :param label_support_path: path to the label support file
+    :param label_support: already load label support volume (default None), if defined label_support_path is not used
     :return: fudged fuzzy prior
     """
     if 'fuzzy_prior' not in locals():
-        label_support = load_label_support(label_support_path)
+        if label_support is None:
+            label_support = load_label_support(label_support_path)
 
         label_support = label_support.to("cpu")
         fuzzy_prior = label_support #/len(label_support)  # convert label_support to fuzzy prior
@@ -128,6 +147,35 @@ def split_merged_labels_paths(label_paths_in, label_paths_out, fuzzy_prior_fudge
         in_nii = nib.load(label_path_in)
         in_data = torch.tensor(in_nii.get_fdata()).to("cuda")
 
+        # input data is expected to be a tensor with shape (C, H, W [, D])
+        in_data = in_data[None, ...]
+
+        out_data = split_merged_label(in_data, influence_regions)
+
+        out_nii = nib.Nifti1Image(out_data.cpu().numpy(), in_nii.affine)
+        nib.save(out_nii, label_path_out)
+        print(f"Saved split label to {label_path_out}")
+
+def split_merged_labels_paths_from_influence_region(label_paths_in, label_paths_out, influence_regions_path):
+    """
+    Split the merged labels according to influence regions directly load from disk for a list of label files.
+    usefull if get_merged_label_dataframe has been done with save_influence_regions=True
+    :param label_paths_in: list of paths to the merged label files
+    :param label_paths_out: list of paths to the split label files
+    :param influence_regions_path: path to the influence_region file
+    :return: None
+    """
+
+    influence_regions_nii = nib.load(influence_regions_path)
+    influence_regions_vol = influence_regions_nii.get_fdata()
+    #transform the 4D volume to a dict
+    influence_regions=dict()
+    for k in range(influence_regions_vol.shape[3]):
+        influence_regions[k] = torch.tensor(influence_regions_vol[...,k]).to("cuda").type(torch.int)
+
+    for label_path_in, label_path_out in zip(label_paths_in, label_paths_out):
+        in_nii = nib.load(label_path_in)
+        in_data = torch.tensor(in_nii.get_fdata()).to("cuda")
         # input data is expected to be a tensor with shape (C, H, W [, D])
         in_data = in_data[None, ...]
 
